@@ -1,25 +1,22 @@
 <template>
-<k-aspect-ratio ratio="16/9">
   <k-block-figure
-    :is-empty="!video.url"
+    :is-empty="!audio.url"
     :caption="content.caption"
     empty-icon="image"
     empty-text="No file selected yet …"
     @open="open"
     @update="update"
   >
-    <VideoPlayer v-if="src" :src="src" :thumb="thumb" />
+    <AudioPlayer v-if="src" :src="src" />
   </k-block-figure>
-</k-aspect-ratio>
 </template>
 
 <script>
-import VideoPlayer from "./VideoPlayer.vue";
-
+import AudioPlayer from "./AudioPlayer.vue";
 export default {
-  name: "VideoBlock",
+  name: "AudioBlock",
   components: {
-    VideoPlayer,
+    AudioPlayer,
   },
   data() {
     return {
@@ -27,8 +24,8 @@ export default {
     };
   },
   computed: {
-    video() {
-      return this.content.video[0] || {};
+    audio() {
+      return this.content.audio[0] || {};
     },
     id() {
       return this.mux?.playback_ids[0].id;
@@ -36,22 +33,10 @@ export default {
     src() {
       if (!this.id) return "";
       return `https://stream.mux.com/${this.id}.m3u8`;
-    },
-    time() {
-      return this.content.thumbnail || 0;
-    },
-    thumb() {
-      if (!this.id) return "";
-      const url = `https://image.mux.com/${this.id}/thumbnail.jpg?time=${this.time}`;
-      const srcset = [300, 600, 900, 1200, 1600];
-      return {
-        src: url,
-        srcset: srcset.map((w) => `${url}&width=${w} ${w}w`).join(", "),
-      };
-    },
+    }
   },
   watch: {
-    "video.link": {
+    "audio.link": {
       handler(link) {
         if (link) {
           this.$api.get(link).then((file) => {
