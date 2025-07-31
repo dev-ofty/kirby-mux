@@ -40,3 +40,4 @@ settings.local.json
 /vendor/**/tests/*
 /vendor/**/php4/*
 /vendor/getkirby/composer-installer
+.claude/settings.local.json
