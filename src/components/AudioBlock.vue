@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, inject } from 'vue'
 import AudioPlayer from "./AudioPlayer.vue"
 
 // Props
@@ -31,6 +31,9 @@ const props = defineProps({
   }
 })
 
+// Inject Kirby's context
+const $api = inject('$api')
+
 // State
 const mux = ref(null)
 
@@ -46,9 +49,9 @@ const src = computed(() => {
 watch(
   () => audio.value.link,
   async (link) => {
-    if (link) {
+    if (link && $api) {
       try {
-        const file = await window.panel.api.get(link)
+        const file = await $api.get(link)
         mux.value = JSON.parse(file.content.mux)
       } catch (error) {
         console.error('Failed to load audio metadata:', error)

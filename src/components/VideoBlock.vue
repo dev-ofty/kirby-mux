@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, inject } from 'vue'
 import VideoPlayer from "./VideoPlayer.vue"
 
 // Props
@@ -30,6 +30,9 @@ const props = defineProps({
     required: true
   }
 })
+
+// Inject Kirby's context
+const $api = inject('$api')
 
 // State
 const mux = ref(null)
@@ -56,9 +59,9 @@ const thumb = computed(() => {
 watch(
   () => video.value.link,
   async (link) => {
-    if (link) {
+    if (link && $api) {
       try {
-        const file = await window.panel.api.get(link)
+        const file = await $api.get(link)
         mux.value = JSON.parse(file.content.mux)
       } catch (error) {
         console.error('Failed to load video metadata:', error)
