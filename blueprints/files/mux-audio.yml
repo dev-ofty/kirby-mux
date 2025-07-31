@@ -1,0 +1,11 @@
+title:
+  de: Mux audio
+  en: Mux audio
+
+accept:
+  mime: audio/*
+  type: audio
+
+fields:
+  mux:
+    type: hidden

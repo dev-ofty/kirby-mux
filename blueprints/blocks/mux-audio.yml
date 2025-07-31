@@ -1,0 +1,16 @@
+name: Audio
+icon: file-audio
+fields:
+  audio:
+    label: Audio
+    type: files
+    multiple: false
+    query: page.files.template('mux-audio')
+    uploads:
+      template: mux-audio
+    min: 1
+    required: true
+  caption:
+    label: Caption
+    type: writer
+    inline: true

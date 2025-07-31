@@ -1,0 +1,41 @@
+{
+  "name": "devofty/kirby-mux",
+  "description": "Upload videos directly to mux @forked from robinscholz/kirby-mux which allows video analysis for dimensions and audio upload with Mux + Mp4.",
+  "type": "kirby-plugin",
+  "keywords": [
+    "kirby",
+    "mux",
+    "video",
+    "stream"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/dev-ofty/kirby-mux#readme",
+  "authors": [
+    {
+      "name": "Dev ofty",
+      "email": "dev@ofty.ch",
+      "homepage": "https://ofty.ch"
+    }
+  ],
+  "require": {
+    "php": ">=8.1.0",
+    "getkirby/composer-installer": "^1.2",
+    "muxinc/mux-php": "^5.0",
+    "vlucas/phpdotenv": "^5.4",
+    "james-heinrich/getid3": "^1.9"
+  },
+  "autoload": {
+    "psr-4": {
+      "KirbyMux\\": "classes/KirbyMux/"
+    }
+  },
+  "scripts": {
+    "dist": "composer install --no-dev --optimize-autoloader"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "allow-plugins": {
+      "getkirby/composer-installer": true
+    }
+  }
+}
