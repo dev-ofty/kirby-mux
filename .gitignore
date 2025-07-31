@@ -1,3 +1,7 @@
+# Claude
+.claude
+codebase.md
+settings.local.json
 # OS files
 .DS_Store
 
