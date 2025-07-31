@@ -11,53 +11,51 @@
   </k-block-figure>
 </template>
 
-<script setup>
-import { ref, computed, watch, inject } from 'vue'
-import AudioPlayer from "./AudioPlayer.vue"
+<script>
+import AudioPlayer from "./AudioPlayer.vue";
 
-// Props
-const props = defineProps({
-  content: {
-    type: Object,
-    required: true
+export default {
+  name: "AudioBlock",
+  components: {
+    AudioPlayer,
   },
-  open: {
-    type: Function,
-    required: true
-  },
-  update: {
-    type: Function,
-    required: true
-  }
-})
-
-// Inject Kirby's context
-const $api = inject('$api')
-
-// State
-const mux = ref(null)
-
-// Computed
-const audio = computed(() => props.content.audio?.[0] || {})
-const id = computed(() => mux.value?.playback_ids?.[0]?.id)
-const src = computed(() => {
-  if (!id.value) return ""
-  return `https://stream.mux.com/${id.value}.m3u8`
-})
-
-// Watch audio link changes
-watch(
-  () => audio.value.link,
-  async (link) => {
-    if (link && $api) {
-      try {
-        const file = await $api.get(link)
-        mux.value = JSON.parse(file.content.mux)
-      } catch (error) {
-        console.error('Failed to load audio metadata:', error)
-      }
+  inject: ["$api"],
+  props: {
+    content: {
+      type: Object,
+      default: () => ({})
     }
   },
-  { immediate: true }
-)
+  data() {
+    return {
+      mux: null,
+    };
+  },
+  computed: {
+    audio() {
+      return this.content.audio?.[0] || {};
+    },
+    id() {
+      return this.mux?.playback_ids?.[0]?.id;
+    },
+    src() {
+      if (!this.id) return "";
+      return `https://stream.mux.com/${this.id}.m3u8`;
+    }
+  },
+  watch: {
+    "audio.link": {
+      handler(link) {
+        if (link && this.$api) {
+          this.$api.get(link).then((file) => {
+            this.mux = JSON.parse(file.content.mux);
+          }).catch((error) => {
+            console.error('Failed to load audio metadata:', error);
+          });
+        }
+      },
+      immediate: true,
+    },
+  },
+};
 </script>

@@ -14,7 +14,7 @@
     </transition>
     <audio
       controls
-      ref="audioRef"
+      ref="audio"
       class="player-audio k-block-type-audio-element"
       :loop="false"
       :muted="state.muted"
@@ -27,93 +27,84 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-import Hls from "hls.js"
+<script>
+import Hls from "hls.js";
 
-// Props
-const props = defineProps({
-  src: {
-    type: String,
-    required: true,
-  }
-})
-
-// State
-const audioRef = ref(null)
-const state = reactive({
-  loaded: false,
-  playback: "idle",
-  muted: false,
-})
-const hls = ref(null)
-
-// Methods
-const load = () => {
-  if (Hls.isSupported()) {
-    hls.value = new Hls()
-    hls.value.loadSource(props.src)
-    hls.value.attachMedia(audioRef.value)
-    hls.value.on(Hls.Events.MEDIA_ATTACHED, onLoad)
-  } else {
-    audioRef.value.src = props.src
-    audioRef.value.load()
-    state.loaded = true
-  }
-}
-
-const destroy = () => {
-  if (hls.value) {
-    hls.value.detachMedia()
-    hls.value.destroy()
-  }
-}
-
-const play = () => {
-  const playPromise = audioRef.value.play()
-  if (playPromise !== null && playPromise !== undefined) {
-    playPromise.catch(() => {
-      pause()
-    })
-  }
-}
-
-const pause = () => {
-  audioRef.value.pause()
-}
-
-const togglePlayback = () => {
-  if (state.playback === "playing") {
-    pause()
-  } else {
-    play()
-  }
-}
-
-const onLoad = () => {
-  state.loaded = true
-}
-
-const onPlay = () => {
-  state.playback = "playing"
-}
-
-const onPause = () => {
-  state.playback = "paused"
-}
-
-const onEnded = () => {
-  state.playback = "ended"
-}
-
-// Lifecycle
-onMounted(() => {
-  load()
-})
-
-onBeforeUnmount(() => {
-  destroy()
-})
+export default {
+  name: "AudioPlayer",
+  props: {
+    src: {
+      type: String,
+      required: true,
+    }
+  },
+  data() {
+    return {
+      state: {
+        loaded: false,
+        playback: "idle",
+        muted: false,
+      },
+      hls: null,
+    };
+  },
+  mounted() {
+    this.load();
+  },
+  beforeUnmount() {
+    this.destroy();
+  },
+  methods: {
+    load() {
+      if (Hls.isSupported()) {
+        this.hls = new Hls();
+        this.hls.loadSource(this.src);
+        this.hls.attachMedia(this.$refs.audio);
+        this.hls.on(Hls.Events.MEDIA_ATTACHED, this.onLoad);
+      } else {
+        this.$refs.audio.src = this.src;
+        this.$refs.audio.load();
+        this.state.loaded = true;
+      }
+    },
+    destroy() {
+      if (this.hls) {
+        this.hls.detachMedia();
+        this.hls.destroy();
+      }
+    },
+    play() {
+      const playPromise = this.$refs.audio.play();
+      if (playPromise !== null) {
+        playPromise.catch(() => {
+          this.pause();
+        });
+      }
+    },
+    pause() {
+      this.$refs.audio.pause();
+    },
+    togglePlayback() {
+      if (this.state.playback === "playing") {
+        this.pause();
+      } else {
+        this.play();
+      }
+    },
+    onLoad() {
+      this.state.loaded = true;
+    },
+    onPlay() {
+      this.state.playback = "playing";
+    },
+    onPause() {
+      this.state.playback = "paused";
+    },
+    onEnded() {
+      this.state.playback = "ended";
+    },
+  },
+};
 </script>
 
 <style lang="postcss">

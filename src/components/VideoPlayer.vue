@@ -33,7 +33,7 @@
       </div>
     </transition>
     <video
-      ref="videoRef"
+      ref="video"
       class="player-video"
       :loop="false"
       :muted="state.muted"
@@ -46,97 +46,88 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-import Hls from "hls.js"
+<script>
+import Hls from "hls.js";
 
-// Props
-const props = defineProps({
-  src: {
-    type: String,
-    required: true,
+export default {
+  name: "VideoPlayer",
+  props: {
+    src: {
+      type: String,
+      required: true,
+    },
+    thumb: {
+      type: Object,
+      default: () => ({}),
+    },
   },
-  thumb: {
-    type: Object,
-    default: () => ({}),
+  data() {
+    return {
+      state: {
+        loaded: false,
+        playback: "idle",
+        muted: false,
+      },
+      hls: null,
+    };
   },
-})
-
-// State
-const videoRef = ref(null)
-const state = reactive({
-  loaded: false,
-  playback: "idle",
-  muted: false,
-})
-const hls = ref(null)
-
-// Methods
-const load = () => {
-  if (Hls.isSupported()) {
-    hls.value = new Hls()
-    hls.value.loadSource(props.src)
-    hls.value.attachMedia(videoRef.value)
-    hls.value.on(Hls.Events.MEDIA_ATTACHED, onLoad)
-  } else {
-    videoRef.value.src = props.src
-    videoRef.value.load()
-    state.loaded = true
-  }
-}
-
-const destroy = () => {
-  if (hls.value) {
-    hls.value.detachMedia()
-    hls.value.destroy()
-  }
-}
-
-const play = () => {
-  const playPromise = videoRef.value.play()
-  if (playPromise !== null && playPromise !== undefined) {
-    playPromise.catch(() => {
-      pause()
-    })
-  }
-}
-
-const pause = () => {
-  videoRef.value.pause()
-}
-
-const togglePlayback = () => {
-  if (state.playback === "playing") {
-    pause()
-  } else {
-    play()
-  }
-}
-
-const onLoad = () => {
-  state.loaded = true
-}
-
-const onPlay = () => {
-  state.playback = "playing"
-}
-
-const onPause = () => {
-  state.playback = "paused"
-}
-
-const onEnded = () => {
-  state.playback = "ended"
-}
-
-// Lifecycle
-onMounted(() => {
-  load()
-})
-
-onBeforeUnmount(() => {
-  destroy()
-})
+  mounted() {
+    this.load();
+  },
+  beforeUnmount() {
+    this.destroy();
+  },
+  methods: {
+    load() {
+      if (Hls.isSupported()) {
+        this.hls = new Hls();
+        this.hls.loadSource(this.src);
+        this.hls.attachMedia(this.$refs.video);
+        this.hls.on(Hls.Events.MEDIA_ATTACHED, this.onLoad);
+      } else {
+        this.$refs.video.src = this.src;
+        this.$refs.video.load();
+        this.state.loaded = true;
+      }
+    },
+    destroy() {
+      if (this.hls) {
+        this.hls.detachMedia();
+        this.hls.destroy();
+      }
+    },
+    play() {
+      const playPromise = this.$refs.video.play();
+      if (playPromise !== null) {
+        playPromise.catch(() => {
+          this.pause();
+        });
+      }
+    },
+    pause() {
+      this.$refs.video.pause();
+    },
+    togglePlayback() {
+      if (this.state.playback === "playing") {
+        this.pause();
+      } else {
+        this.play();
+      }
+    },
+    onLoad() {
+      this.state.loaded = true;
+    },
+    onPlay() {
+      this.state.playback = "playing";
+    },
+    onPause() {
+      this.state.playback = "paused";
+    },
+    onEnded() {
+      this.state.playback = "ended";
+    },
+  },
+};
 </script>
 
 <style lang="postcss">
