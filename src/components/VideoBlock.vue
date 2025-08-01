@@ -63,15 +63,17 @@ export default {
       };
     },
     videoWidth() {
-      return this.fileData?.content?.resolutionX || this.mux?.max_stored_resolution?.split('x')?.[0] || null;
+      // Kirby converts field names to lowercase
+      return this.fileData?.content?.resolutionx || this.mux?.max_stored_resolution?.split('x')?.[0] || null;
     },
     videoHeight() {
-      return this.fileData?.content?.resolutionY || this.mux?.max_stored_resolution?.split('x')?.[1] || null;
+      // Kirby converts field names to lowercase
+      return this.fileData?.content?.resolutiony || this.mux?.max_stored_resolution?.split('x')?.[1] || null;
     },
     aspectRatio() {
       // Use the aspect ratio from file metadata if available
-      if (this.fileData?.content?.resAspect) {
-        return this.fileData.content.resAspect;
+      if (this.fileData?.content?.resaspect) {
+        return this.fileData.content.resaspect;
       }
       // Otherwise calculate from dimensions
       if (this.videoWidth && this.videoHeight) {

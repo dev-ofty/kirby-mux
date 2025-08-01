@@ -82,15 +82,18 @@ export default {
       return this.thumb?.src || "";
     },
     containerStyle() {
-      if (this.aspectRatio) {
-        return {
-          aspectRatio: this.aspectRatio,
-        };
-      } else if (this.width && this.height) {
+      // Try padding-bottom approach first for better browser support
+      if (this.width && this.height) {
         const paddingBottom = (parseFloat(this.height) / parseFloat(this.width)) * 100;
         return {
           position: "relative",
           paddingBottom: `${paddingBottom}%`,
+          height: 0,
+        };
+      } else if (this.aspectRatio) {
+        // Use CSS aspect-ratio for modern browsers
+        return {
+          aspectRatio: this.aspectRatio,
         };
       }
       return {};
@@ -167,13 +170,24 @@ export default {
   height: 100%;
 }
 
-/* For browsers that don't support aspect-ratio */
+/* When using padding-bottom technique */
 .video-player[style*="padding-bottom"] .video-wrapper {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Ensure video fills container */
+.video-player[style*="aspect-ratio"] video,
+.video-player[style*="padding-bottom"] video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .overlay {
