@@ -7,7 +7,14 @@
     @open="open"
     @update="update"
   >
-    <VideoPlayer v-if="src" :src="src" :thumb="thumb" />
+    <VideoPlayer
+      v-if="src"
+      :src="src"
+      :thumb="thumb"
+      :aspect-ratio="aspectRatio"
+      :width="videoWidth"
+      :height="videoHeight"
+    />
   </k-block-figure>
 </template>
 
@@ -29,6 +36,7 @@ export default {
   data() {
     return {
       mux: null,
+      fileData: null,
     };
   },
   computed: {
@@ -54,12 +62,31 @@ export default {
         srcset: srcset.map((w) => `${url}&width=${w} ${w}w`).join(", "),
       };
     },
+    videoWidth() {
+      return this.fileData?.content?.resolutionX || this.mux?.max_stored_resolution?.split('x')?.[0] || null;
+    },
+    videoHeight() {
+      return this.fileData?.content?.resolutionY || this.mux?.max_stored_resolution?.split('x')?.[1] || null;
+    },
+    aspectRatio() {
+      // Use the aspect ratio from file metadata if available
+      if (this.fileData?.content?.resAspect) {
+        return this.fileData.content.resAspect;
+      }
+      // Otherwise calculate from dimensions
+      if (this.videoWidth && this.videoHeight) {
+        return `${this.videoWidth}/${this.videoHeight}`;
+      }
+      // Return null if no dimension data available
+      return null;
+    },
   },
   watch: {
     "video.link": {
       handler(link) {
         if (link && this.$api) {
           this.$api.get(link).then((file) => {
+            this.fileData = file;
             this.mux = JSON.parse(file.content.mux);
           }).catch((error) => {
             console.error('Failed to load video metadata:', error);

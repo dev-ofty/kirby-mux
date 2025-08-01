@@ -1,48 +1,42 @@
 <template>
-  <div class="video-player">
-    <transition name="fade">
-      <img
-        v-if="!!thumb && state.playback === 'idle'"
-        :src="thumb.src"
-        :srcset="thumb.srcset"
-        sizes="auto"
-        class="thumb"
-      />
-    </transition>
-    <transition name="fade">
-      <div
-        v-if="
-          state.playback === 'idle' ||
-          state.playback === 'ended' ||
-          state.playback === 'paused'
-        "
-        class="overlay"
+  <div class="video-player" :style="containerStyle">
+    <div class="video-wrapper">
+      <transition name="fade">
+        <div
+          v-if="
+            state.playback === 'idle' ||
+            state.playback === 'ended' ||
+            state.playback === 'paused'
+          "
+          class="overlay"
+          @click="togglePlayback"
+        >
+          <button class="overlay__inner">
+            <svg
+              width="10"
+              height="13"
+              viewBox="0 0 10 13"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M0 0.388916L10 6.50003L0 12.6111V0.388916Z" />
+            </svg>
+          </button>
+        </div>
+      </transition>
+      <video
+        ref="video"
+        class="player-video"
+        :poster="posterUrl"
+        :loop="false"
+        :muted="state.muted"
+        preload="auto"
+        @play="onPlay"
+        @pause="onPause"
+        @ended="onEnded"
         @click="togglePlayback"
-      >
-        <button class="overlay__inner">
-          <svg
-            width="10"
-            height="13"
-            viewBox="0 0 10 13"
-            fill="currentColor"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M0 0.388916L10 6.50003L0 12.6111V0.388916Z" />
-          </svg>
-        </button>
-      </div>
-    </transition>
-    <video
-      ref="video"
-      class="player-video"
-      :loop="false"
-      :muted="state.muted"
-      preload="auto"
-      @play="onPlay"
-      @pause="onPause"
-      @ended="onEnded"
-      @click="togglePlayback"
-    />
+      />
+    </div>
   </div>
 </template>
 
@@ -60,6 +54,18 @@ export default {
       type: Object,
       default: () => ({}),
     },
+    aspectRatio: {
+      type: String,
+      default: null,
+    },
+    width: {
+      type: [String, Number],
+      default: null,
+    },
+    height: {
+      type: [String, Number],
+      default: null,
+    },
   },
   data() {
     return {
@@ -70,6 +76,25 @@ export default {
       },
       hls: null,
     };
+  },
+  computed: {
+    posterUrl() {
+      return this.thumb?.src || "";
+    },
+    containerStyle() {
+      if (this.aspectRatio) {
+        return {
+          aspectRatio: this.aspectRatio,
+        };
+      } else if (this.width && this.height) {
+        const paddingBottom = (parseFloat(this.height) / parseFloat(this.width)) * 100;
+        return {
+          position: "relative",
+          paddingBottom: `${paddingBottom}%`,
+        };
+      }
+      return {};
+    },
   },
   mounted() {
     this.load();
@@ -132,18 +157,23 @@ export default {
 
 <style lang="postcss">
 .video-player {
-  position: relative;
-  display: flex;
+  display: block;
+  width: 100%;
 }
 
-.thumb {
+.video-wrapper {
+  position: relative;
   width: 100%;
+  height: 100%;
+}
+
+/* For browsers that don't support aspect-ratio */
+.video-player[style*="padding-bottom"] .video-wrapper {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10;
+  width: 100%;
+  height: 100%;
 }
 
 .overlay {
@@ -183,7 +213,9 @@ export default {
 
 video {
   width: 100%;
+  height: 100%;
   cursor: pointer;
+  display: block;
 }
 .k-block-container-type-mux-video {
   position: relative;
