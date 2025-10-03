@@ -1,7 +1,5 @@
 <?php
 @include_once __DIR__ . '/vendor/autoload.php';
-// To get the video aspect ratio and other meta data
-require('vendor/james-heinrich/getid3/getid3/getid3.php');
 Dotenv\Dotenv::createImmutable(kirby()->root('base'))->load(); // TODO: Add configurable path for .env
 Kirby::plugin('robinscholz/kirby-mux', [
     'translations' => [
