@@ -9,8 +9,14 @@ class Methods
         $file = $url;
         endif;
         $input = new MuxPhp\Models\InputSettings(["url" => $file]);
-        $createAssetRequest = new MuxPhp\Models\CreateAssetRequest(["input" => $input, "playback_policy" => [MuxPhp\Models\PlaybackPolicy::_PUBLIC], "mp4_support" => "standard"]);
-        // $updateAssetMp4SupportRequest = new MuxPhp\Models\UpdateAssetMP4SupportRequest(["mp4_support" => "standard"]);
+        $staticRenditions = [
+            ["resolution" => "highest"]
+        ];
+        $createAssetRequest = new MuxPhp\Models\CreateAssetRequest([
+            "input" => $input,
+            "playback_policy" => [MuxPhp\Models\PlaybackPolicy::_PUBLIC],
+            "static_renditions" => $staticRenditions
+        ]);
         $result = $assetsApi->createAsset($createAssetRequest);
         return $result;
     }
