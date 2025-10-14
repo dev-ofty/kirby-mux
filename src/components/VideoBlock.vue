@@ -88,8 +88,31 @@ export default {
       handler(link) {
         if (link && this.$api) {
           this.$api.get(link).then((file) => {
+            // Guard against missing or invalid file data
+            if (!file || !file.content) {
+              console.error('Invalid file data received');
+              return;
+            }
+
             this.fileData = file;
-            this.mux = JSON.parse(file.content.mux);
+
+            // Guard against missing or invalid mux data
+            if (!file.content.mux) {
+              console.error('Missing mux data in file content');
+              return;
+            }
+
+            try {
+              const parsedMux = JSON.parse(file.content.mux);
+              // Validate that parsed data has expected structure
+              if (!parsedMux || typeof parsedMux !== 'object') {
+                console.error('Invalid mux data structure');
+                return;
+              }
+              this.mux = parsedMux;
+            } catch (error) {
+              console.error('Failed to parse mux JSON:', error);
+            }
           }).catch((error) => {
             console.error('Failed to load video metadata:', error);
           });

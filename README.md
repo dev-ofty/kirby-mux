@@ -41,27 +41,48 @@ composer update
 
 ## Configuration
 
-Add a .env file to the root of your Kirby plugin with the following properties:
+### Environment Variables
 
-| Key              | Type      |
-| ---------------- | --------- |
-| MUX_TOKEN_ID     | `String`  |
-| MUX_TOKEN_SECRET | `String`  |
-| MUX_DEV          | `Boolean` |
+Add a `.env` file to the root of your Kirby installation with the following properties:
 
-### MUX_TOKEN_ID
+| Key              | Type      | Description |
+| ---------------- | --------- | ----------- |
+| MUX_TOKEN_ID     | `String`  | Your Mux API Access Token ID |
+| MUX_TOKEN_SECRET | `String`  | Your Mux API Access Token Secret |
+| MUX_DEV          | `Boolean` | Enable development mode |
+
+#### MUX_TOKEN_ID
 
 In order for the plugin to work, you need to create an `API Access Token` on the MUX dashboard. Save the `Token ID` here.
 
-### MUX_TOKEN_SECRET
+#### MUX_TOKEN_SECRET
 
 Save the associated `Token Secret` here.
 
-### MUX_DEV
+#### MUX_DEV
 
-Set this to `true` for local development. Instead of the actual video, the plugin will upload a test video to Mux. This is neccessary, since videos need to be publicly hosted for Mux to be able to import them.
+Set this to `true` for local development. Instead of the actual video, the plugin will upload a test video to Mux. This is necessary, since videos need to be publicly hosted for Mux to be able to import them.
 
 > **NOTE:** This plugin includes a .env.example file as well.
+
+### Plugin Options
+
+Add the following options to your `site/config/config.php` file:
+
+```php
+return [
+    'robinscholz.kirby-mux.optimizeDiskSpace' => false, // or true
+];
+```
+
+#### optimizeDiskSpace
+
+**Type:** `Boolean`
+**Default:** `false`
+
+When set to `true`, the plugin will download and store MP4 video files locally after uploading to Mux. This creates a local backup of your videos and reduces dependency on Mux's streaming service.
+
+When set to `false` (default), videos are only stored on Mux and streamed from there, saving local disk space.
 
 ## What's New in This Fork
 
