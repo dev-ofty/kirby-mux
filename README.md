@@ -39,11 +39,39 @@ Then run:
 composer update
 ```
 
+### Post-Installation
+
+After installing via any method, you **must** run:
+
+```bash
+cd site/plugins/kirby-mux
+composer install
+```
+
+This installs the required PHP dependencies (Mux PHP SDK, dotenv, getID3).
+
+#### Installation with Public Folder Structure
+
+If you're using a public folder structure (where your web root is `/public` for security), the plugin will automatically detect and work with this setup. The autoloader will be found in the correct location.
+
+Example structure:
+```
+/your-project/
+├── public/              ← Web root
+│   └── index.php
+├── site/
+│   ├── config/
+│   └── plugins/
+│       └── kirby-mux/
+├── vendor/              ← Composer dependencies
+└── .env                 ← Environment file
+```
+
 ## Configuration
 
 ### Environment Variables
 
-Add a `.env` file to the root of your Kirby installation with the following properties:
+Add a `.env` file to your Kirby installation with the following properties:
 
 | Key              | Type      | Description |
 | ---------------- | --------- | ----------- |
@@ -65,13 +93,25 @@ Set this to `true` for local development. Instead of the actual video, the plugi
 
 > **NOTE:** This plugin includes a .env.example file as well.
 
+#### `.env` File Location
+
+The plugin automatically searches for your `.env` file in the following locations:
+
+1. **Plugin directory** - `site/plugins/kirby-mux/.env`
+2. **Kirby root** - `/path/to/your-project/.env` (standard installation)
+3. **Parent directories** - Automatically searches up the directory tree
+4. **Public folder setups** - Works with installations using a separate `public/` directory
+
+If you have a non-standard installation or need to specify a custom path, see the **envPath** option below.
+
 ### Plugin Options
 
 Add the following options to your `site/config/config.php` file:
 
 ```php
 return [
-    'robinscholz.kirby-mux.optimizeDiskSpace' => false, // or true
+    'robinscholz.kirby-mux.optimizeDiskSpace' => false,
+    'robinscholz.kirby-mux.envPath' => null, // optional
 ];
 ```
 
@@ -84,6 +124,38 @@ When set to `true`, the plugin will download and store MP4 video files locally a
 
 When set to `false` (default), videos are only stored on Mux and streamed from there, saving local disk space.
 
+#### envPath
+
+**Type:** `String|null`
+**Default:** `null`
+
+Specify a custom path to your `.env` file or the directory containing it. This is useful for non-standard Kirby installations or when using a `public/` folder structure.
+
+**Examples:**
+
+```php
+// Standard installation with public folder
+return [
+    'robinscholz.kirby-mux.envPath' => dirname(__DIR__, 2), // Points to project root
+];
+```
+
+```php
+// Custom .env location
+return [
+    'robinscholz.kirby-mux.envPath' => '/var/www/myproject/.env',
+];
+```
+
+```php
+// Directory containing .env
+return [
+    'robinscholz.kirby-mux.envPath' => '/var/www/myproject',
+];
+```
+
+> **Note:** If not specified, the plugin automatically searches common Kirby installation locations.
+
 ## What's New in This Fork
 
 This fork includes several enhancements over the original:
@@ -93,6 +165,8 @@ This fork includes several enhancements over the original:
 3. **MP4 Support**: Enables standard MP4 downloads alongside HLS streaming
 4. **Vue 3 Components**: All components updated to use Vue 3 Composition API with modern best practices
 5. **Improved Error Handling**: Better error handling and user feedback
+6. **Flexible Installation**: Automatic detection of different Kirby installation structures (standard, public folder, composer-managed)
+7. **Configurable `.env` Path**: Set a custom path for your environment file via plugin options
 
 ## Caveats
 

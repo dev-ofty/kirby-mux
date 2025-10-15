@@ -1,10 +1,45 @@
 <?php
-@include_once __DIR__ . '/vendor/autoload.php';
-Dotenv\Dotenv::createImmutable(__DIR__)->load(); // TODO: Add configurable path for .env
+/**
+ * Kirby Mux Plugin
+ *
+ * Autoloader: Attempts to load from multiple common Kirby installation patterns
+ * - Standard: site/plugins/kirby-mux/vendor/autoload.php
+ * - Public folder: site/plugins/kirby-mux/vendor/autoload.php (relative from public)
+ * - Composer managed: vendor/autoload.php (root level)
+ */
+
+// Try to load autoloader from various common locations
+$autoloadPaths = [
+    __DIR__ . '/vendor/autoload.php',           // Plugin's own vendor (standard)
+    __DIR__ . '/../../../vendor/autoload.php',  // Root vendor (standard Kirby)
+    __DIR__ . '/../../../../vendor/autoload.php', // Root vendor (with public folder)
+];
+
+$autoloaderLoaded = false;
+foreach ($autoloadPaths as $autoloadPath) {
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+        $autoloaderLoaded = true;
+        break;
+    }
+}
+
+// Guard clause: Exit if autoloader couldn't be loaded
+if (!$autoloaderLoaded) {
+    throw new Exception('Kirby Mux: Composer autoloader not found. Please run "composer install".');
+}
+
+/**
+ * Load environment variables early
+ * This attempts to find and load .env from common locations
+ * Can be overridden later via the envPath option
+ */
+KirbyMux\Env::load();
 
 Kirby::plugin('robinscholz/kirby-mux', [
     'options' => [
-        'optimizeDiskSpace' => false
+        'optimizeDiskSpace' => false,
+        'envPath' => null, // Custom path to .env file or directory (optional)
     ],
     'translations' => [
         'en' => [
@@ -498,3 +533,13 @@ Kirby::plugin('robinscholz/kirby-mux', [
         }
     ]
 ]);
+
+/**
+ * If a custom envPath is configured via Kirby config, reload the environment from that location
+ * This will be picked up when Kirby initializes and the option becomes available
+ *
+ * Example in config.php:
+ * return [
+ *     'robinscholz.kirby-mux.envPath' => '/path/to/your/.env'
+ * ];
+ */
