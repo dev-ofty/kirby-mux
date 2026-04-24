@@ -16,39 +16,38 @@ Download and copy this repository to `/site/plugins/kirby-mux`.
 git submodule add https://github.com/dev-ofty/kirby-mux.git site/plugins/kirby-mux
 ```
 
-### Composer
+### Composer (recommended)
 
-Since this package is not on Packagist, you need to add the repository to your `composer.json`:
+Since this package is not on Packagist, register the fork as a VCS repository and then require it. From your project root:
 
-```json
-{
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/dev-ofty/kirby-mux"
-    }
-  ],
-  "require": {
-    "devofty/kirby-mux": "dev-main"
-  }
-}
-```
-
-Then run:
 ```bash
-composer update
+composer config repositories.devofty-kirby-mux vcs https://github.com/dev-ofty/kirby-mux
+composer require devofty/kirby-mux:dev-main
 ```
 
-### Post-Installation
+Version constraint options:
 
-After installing via any method, you **must** run:
+- `dev-main` — always track the latest commit on `main`
+- `^1.3` — pin to the tagged `v1.3.x` line (recommended for production)
+
+That's it — all PHP dependencies (Mux SDK, dotenv, getID3) are installed into the project's root `vendor/` directory automatically. **No extra `composer install` inside the plugin folder is needed.**
+
+To pull later updates:
+
+```bash
+composer update devofty/kirby-mux
+```
+
+### Post-Installation (manual / submodule only)
+
+If you installed via **download** or **git submodule** (i.e. without Composer at the project root), you need to install the plugin's PHP dependencies locally:
 
 ```bash
 cd site/plugins/kirby-mux
 composer install
 ```
 
-This installs the required PHP dependencies (Mux PHP SDK, dotenv, getID3).
+This is **not** required for Composer-managed installs — skip this step if you used `composer require`.
 
 #### Installation with Public Folder Structure
 
