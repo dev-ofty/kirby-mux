@@ -109,19 +109,27 @@ Add the following options to your `site/config/config.php` file:
 
 ```php
 return [
-    'robinscholz.kirby-mux.optimizeDiskSpace' => false,
     'robinscholz.kirby-mux.envPath' => null, // optional
+    'robinscholz.kirby-mux.videoQuality' => 'plus', // 'basic' | 'plus' | 'premium' | callable($file) => string
+    'robinscholz.kirby-mux.maxResolutionTier' => '1080p', // '1080p' | '1440p' | '2160p'
 ];
 ```
 
-#### optimizeDiskSpace
+#### videoQuality
 
-**Type:** `Boolean`
-**Default:** `false`
+**Type:** `String|callable`
+**Default:** `'plus'`
 
-When set to `true`, the plugin will download and store MP4 video files locally after uploading to Mux. This creates a local backup of your videos and reduces dependency on Mux's streaming service.
+Sets the Mux ingest-time video quality tier for newly uploaded assets. Use `'basic'` for lower-cost encoding, `'plus'` for the default balanced option, or `'premium'` for higher-cost premium encoding. You can also pass a callable receiving the Kirby file object to decide the value per file.
 
-When set to `false` (default), videos are only stored on Mux and streamed from there, saving local disk space.
+> Changing this after an asset has already been uploaded requires re-uploading the file because the setting is applied at ingest time.
+
+#### maxResolutionTier
+
+**Type:** `String`
+**Default:** `'1080p'`
+
+Sets the maximum resolution tier Mux will encode, store, and stream for newly uploaded assets. Supported values are `'1080p'`, `'1440p'`, and `'2160p'`.
 
 #### envPath
 

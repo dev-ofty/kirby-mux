@@ -38,8 +38,9 @@ KirbyMux\Env::load();
 
 Kirby::plugin('robinscholz/kirby-mux', [
     'options' => [
-        'optimizeDiskSpace' => false,
         'envPath' => null, // Custom path to .env file or directory (optional)
+        'videoQuality' => 'plus', // 'basic' | 'plus' | 'premium' | callable($file) => string
+        'maxResolutionTier' => '1080p', // '1080p' | '1440p' | '2160p'
     ],
     'translations' => [
         'en' => [
@@ -125,6 +126,11 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 }
             }
 
+            $renditionName = KirbyMux\Methods::resolveStaticRenditionName($muxData);
+            if ($renditionName) {
+                return "https://stream.mux.com/" . $playbackId . "/" . $renditionName;
+            }
+
             return "https://stream.mux.com/" . $playbackId . "/capped-1080p.mp4";
         },
         'muxUrlHigh' => function () {
@@ -179,15 +185,12 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 }
             }
 
-            $static_renditions = isset($muxData->static_renditions) ? $muxData->static_renditions : null;
+            $renditionName = KirbyMux\Methods::resolveStaticRenditionName($muxData);
+            if ($renditionName) {
+                return "https://stream.mux.com/" . $playbackId . "/" . $renditionName;
+            }
 
-            return ($static_renditions &&
-                    $static_renditions->status === 'ready' &&
-                    isset($static_renditions->files) &&
-                    is_array($static_renditions->files) &&
-                    count($static_renditions->files) > 1)
-                ? "https://stream.mux.com/" . $playbackId . "/high.mp4"
-                : "https://stream.mux.com/" . $playbackId . "/capped-1080p.mp4";
+            return "https://stream.mux.com/" . $playbackId . "/capped-1080p.mp4";
         },
         'muxUrlStream' => function () {
             $playbackId = $this->muxPlaybackId();
@@ -301,8 +304,15 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 return;
             }
 
+            $quality = option('robinscholz.kirby-mux.videoQuality', 'plus');
+            if (is_callable($quality)) {
+                $quality = $quality($file);
+            }
+
+            $maxResolutionTier = option('robinscholz.kirby-mux.maxResolutionTier', '1080p');
+
             // Upload the file to mux (returns synchronously with playback_id, even while processing)
-            $result = KirbyMux\Methods::upload($assetsApi, $file->url(), $file->type());
+            $result = KirbyMux\Methods::upload($assetsApi, $file->url(), $file->type(), $quality, $maxResolutionTier);
             if (!$result || !$result->getData()) {
                 return;
             }
@@ -418,8 +428,15 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 return;
             }
 
+            $quality = option('robinscholz.kirby-mux.videoQuality', 'plus');
+            if (is_callable($quality)) {
+                $quality = $quality($newFile);
+            }
+
+            $maxResolutionTier = option('robinscholz.kirby-mux.maxResolutionTier', '1080p');
+
             // Upload new file to mux (returns synchronously with playback_id, even while processing)
-            $result = KirbyMux\Methods::upload($assetsApi, $newFile->url(), $newFile->type());
+            $result = KirbyMux\Methods::upload($assetsApi, $newFile->url(), $newFile->type(), $quality, $maxResolutionTier);
             if (!$result || !$result->getData()) {
                 return;
             }
