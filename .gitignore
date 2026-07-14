@@ -23,3 +23,4 @@ settings.local.jsonwith
 # Composer vendor folder
 /vendor/
 .claude/settings.local.json
+mux-plugin-recommendations.md
