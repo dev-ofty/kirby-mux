@@ -33,6 +33,35 @@ class Methods
         return $result;
     }
 
+    /**
+     * Poll Mux until the asset has finished processing and its metadata
+     * (aspect_ratio, duration, tracks…) is available.
+     * Returns the complete asset data, or null if it never became ready.
+     */
+    public static function waitUntilReady($assetsApi, $assetId, $maxAttempts = 120)
+    {
+        $attempts = 0;
+        while ($attempts < $maxAttempts) {
+            try {
+                $asset = $assetsApi->getAsset($assetId);
+            } catch (\Exception $e) {
+                return null;
+            }
+
+            $data = $asset ? $asset->getData() : null;
+            if (!$data) {
+                return null;
+            }
+            if ($data->getStatus() === 'ready') {
+                return $data;
+            }
+
+            sleep(1);
+            $attempts++;
+        }
+        return null;
+    }
+
     public static function resolveStaticRenditionName($muxData) {
         if (!$muxData || !isset($muxData->static_renditions) || !isset($muxData->static_renditions->files) || !is_array($muxData->static_renditions->files)) {
             return null;

@@ -64,6 +64,29 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 return null;
             }
             $muxData = json_decode($this->mux());
+
+            // Self-heal: if the stored snapshot predates asset readiness, refresh it once
+            if ($muxData && isset($muxData->id) && (!isset($muxData->status) || $muxData->status !== 'ready')) {
+                $assetsApi = KirbyMux\Auth::assetsApi();
+                if ($assetsApi) {
+                    try {
+                        $asset = $assetsApi->getAsset($muxData->id);
+                        $data  = $asset ? $asset->getData() : null;
+                        if ($data && $data->getStatus() === 'ready') {
+                            $file = $this;
+                            // Frontend renders have no authenticated user; impersonate
+                            // so the file update is permitted outside the Panel.
+                            kirby()->impersonate('kirby', function () use ($file, $data) {
+                                $file->update(['mux' => $data]);
+                            });
+                            $muxData = json_decode((string)$data);
+                        }
+                    } catch (Exception $e) {
+                        // Keep the stored snapshot; playback still works via playback_ids
+                    }
+                }
+            }
+
             if (!$muxData ||
                 !isset($muxData->playback_ids) ||
                 !is_array($muxData->playback_ids) ||
@@ -114,9 +137,12 @@ Kirby::plugin('robinscholz/kirby-mux', [
                             sleep(1);
                             $attempts++;
                         } else {
-                            $this->update([
-                                'mux' => $assetData
-                            ]);
+                            $file = $this;
+                            // Frontend renders have no authenticated user; impersonate
+                            // so the file update is permitted outside the Panel.
+                            kirby()->impersonate('kirby', function () use ($file, $assetData) {
+                                $file->update(['mux' => $assetData]);
+                            });
                             break;
                         }
                     }
@@ -174,9 +200,12 @@ Kirby::plugin('robinscholz/kirby-mux', [
                             sleep(1);
                             $attempts++;
                         } else {
-                            $this->update([
-                                'mux' => $assetData
-                            ]);
+                            $file = $this;
+                            // Frontend renders have no authenticated user; impersonate
+                            // so the file update is permitted outside the Panel.
+                            kirby()->impersonate('kirby', function () use ($file, $assetData) {
+                                $file->update(['mux' => $assetData]);
+                            });
                             break;
                         }
                     }
@@ -328,16 +357,19 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 $resolutionY = isset($ThisFileInfo['video']['resolution_y']) ? $ThisFileInfo['video']['resolution_y'] : '';
             }
 
-            // Persist the initial Mux response and return immediately.
-            // The "preparing → ready" transition is handled lazily on render
-            // by muxUrlLow / muxUrlHigh, and the thumbnail is generated on
-            // demand by muxKirbyThumbnail — so there's no need to block here.
+            // Wait for Mux to finish analyzing so the persisted JSON is complete
+            // (contains aspect_ratio, duration, tracks). Falls back to the initial
+            // response only if Mux never reports ready within the window — in which
+            // case the self-heal in muxPlaybackId() finishes the job.
+            $assetData = KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId())
+                ?? $result->getData();
+
             try {
                 $file->update([
-                    'mux' => $result->getData(),
+                    'mux' => $assetData,
                     'resolutionX' => $resolutionX,
                     'resolutionY' => $resolutionY,
-                    'resAspect' => $result->getData()->getAspectRatio()
+                    'resAspect' => $assetData->getAspectRatio()
                 ]);
             } catch (Exception $e) {
                 throw new Exception($e->getMessage());
@@ -456,16 +488,19 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 $resolutionY = isset($ThisFileInfo['video']['resolution_y']) ? $ThisFileInfo['video']['resolution_y'] : '';
             }
 
-            // Persist the initial Mux response and return immediately.
-            // See file.create:after for rationale — lazy polling in
-            // muxUrlLow/muxUrlHigh + on-demand muxKirbyThumbnail remove the
-            // need to block the request here.
+            // Wait for Mux to finish analyzing so the persisted JSON is complete
+            // (contains aspect_ratio, duration, tracks). Falls back to the initial
+            // response only if Mux never reports ready within the window — in which
+            // case the self-heal in muxPlaybackId() finishes the job.
+            $assetData = KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId())
+                ?? $result->getData();
+
             try {
                 $newFile->update([
-                    'mux' => $result->getData(),
+                    'mux' => $assetData,
                     'resolutionX' => $resolutionX,
                     'resolutionY' => $resolutionY,
-                    'resAspect' => $result->getData()->getAspectRatio()
+                    'resAspect' => $assetData->getAspectRatio()
                 ]);
             } catch (Exception $e) {
                 throw new Exception($e->getMessage());
