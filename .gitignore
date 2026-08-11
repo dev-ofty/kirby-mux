@@ -24,3 +24,4 @@ settings.local.jsonwith
 /vendor/
 .claude/settings.local.json
 mux-plugin-recommendations.md
+FIX-MUX-ASPECT-RATIO.md
