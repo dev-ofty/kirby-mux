@@ -77,6 +77,7 @@ Add a `.env` file to your Kirby installation with the following properties:
 | MUX_TOKEN_ID     | `String`  | Your Mux API Access Token ID |
 | MUX_TOKEN_SECRET | `String`  | Your Mux API Access Token Secret |
 | MUX_DEV          | `Boolean` | Enable development mode |
+| MUX_WEBHOOK_SECRET | `String` | Optional webhook signing secret (see [Webhooks](#webhooks)) |
 
 #### MUX_TOKEN_ID
 
@@ -112,6 +113,7 @@ return [
     'robinscholz.kirby-mux.envPath' => null, // optional
     'robinscholz.kirby-mux.videoQuality' => 'plus', // 'basic' | 'plus' | 'premium' | callable($file) => string
     'robinscholz.kirby-mux.maxResolutionTier' => '1080p', // '1080p' | '1440p' | '2160p'
+    'robinscholz.kirby-mux.webhookSecret' => null, // optional, enables async processing
 ];
 ```
 
@@ -130,6 +132,13 @@ Sets the Mux ingest-time video quality tier for newly uploaded assets. Use `'bas
 **Default:** `'1080p'`
 
 Sets the maximum resolution tier Mux will encode, store, and stream for newly uploaded assets. Supported values are `'1080p'`, `'1440p'`, and `'2160p'`.
+
+#### webhookSecret
+
+**Type:** `String|null`
+**Default:** `null` (falls back to `MUX_WEBHOOK_SECRET` from `.env`)
+
+The signing secret of a Mux webhook. When set, uploads no longer block while Mux processes the video. See [Webhooks](#webhooks).
 
 #### envPath
 
@@ -214,3 +223,21 @@ MIT
 
 - Original plugin by [Robin Scholz](https://github.com/robinscholz)
 - Fork with additional features by [Dev Ofty](https://github.com/dev-ofty)
+
+## Webhooks
+
+By default the upload hook waits (up to ~2 minutes) for Mux to finish processing before saving the asset data. On large files this can hit PHP or gateway timeouts. With webhooks, the upload returns immediately and Mux notifies Kirby when the asset is ready.
+
+1. In the Mux dashboard go to **Settings → Webhooks**, choose the environment matching your API token, and add `https://your-site.com/mux/webhook` as the URL.
+2. Copy the webhook's **Signing Secret** into `MUX_WEBHOOK_SECRET` in your `.env`, or into the `robinscholz.kirby-mux.webhookSecret` option.
+
+How it works:
+
+- New assets are created with the Kirby file's UUID (or id) as Mux `passthrough`, so incoming events map straight back to the file.
+- Each request is verified against the `Mux-Signature` header (HMAC-SHA256, events older than 5 minutes are rejected).
+- On relevant events (`video.asset.ready`, `video.asset.updated`, static rendition `ready`/`errored`, …) the asset is re-fetched from the Mux API and saved, together with `resAspect`, and the local `-thumbnail.jpg` poster is generated.
+- Render-time polling in `muxUrlLow()` / `muxUrlHigh()` / `muxPlaybackId()` is skipped for webhook-synced assets.
+- Assets uploaded before webhooks were enabled have no passthrough; they keep using the existing on-render self-heal.
+
+> Mux needs to reach your site, so webhooks don't work on `localhost` without a tunnel (e.g. ngrok).
+

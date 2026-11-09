@@ -41,6 +41,45 @@ Kirby::plugin('robinscholz/kirby-mux', [
         'envPath' => null, // Custom path to .env file or directory (optional)
         'videoQuality' => 'plus', // 'basic' | 'plus' | 'premium' | callable($file) => string
         'maxResolutionTier' => '1080p', // '1080p' | '1440p' | '2160p'
+        'webhookSecret' => null, // Mux webhook signing secret; enables async processing (or MUX_WEBHOOK_SECRET in .env)
+    ],
+    'routes' => [
+        [
+            'pattern' => 'mux/webhook',
+            'method' => 'POST',
+            'action' => function () {
+                $secret = KirbyMux\Methods::webhookSecret();
+                if (!$secret) {
+                    return new Kirby\Http\Response('Webhook secret not configured', 'text/plain', 500);
+                }
+
+                $payload = file_get_contents('php://input');
+                $header = $_SERVER['HTTP_MUX_SIGNATURE'] ?? '';
+                if (!KirbyMux\Methods::verifySignature($payload, $header, $secret)) {
+                    return new Kirby\Http\Response('Invalid signature', 'text/plain', 403);
+                }
+
+                $assetId = KirbyMux\Methods::webhookAssetId($payload);
+                if (!$assetId) {
+                    return new Kirby\Http\Response('Ignored', 'text/plain', 200);
+                }
+
+                $assetsApi = KirbyMux\Auth::assetsApi();
+                if (!$assetsApi) {
+                    return new Kirby\Http\Response('Mux credentials missing', 'text/plain', 500);
+                }
+
+                try {
+                    $message = KirbyMux\Methods::syncAsset($assetsApi, $assetId);
+                } catch (Throwable $e) {
+                    // 500 lets Mux retry transient failures (e.g. locked content file)
+                    return new Kirby\Http\Response('Sync failed', 'text/plain', 500);
+                }
+
+                // 200 even for unmappable events (no passthrough, stale asset…) so Mux stops retrying
+                return new Kirby\Http\Response($message, 'text/plain', 200);
+            }
+        ]
     ],
     'translations' => [
         'en' => [
@@ -66,7 +105,8 @@ Kirby::plugin('robinscholz/kirby-mux', [
             $muxData = json_decode($this->mux());
 
             // Self-heal: if the stored snapshot predates asset readiness, refresh it once
-            if ($muxData && isset($muxData->id) && (!isset($muxData->status) || $muxData->status !== 'ready')) {
+            // Skipped when webhooks keep this asset in sync (no API call per render)
+            if ($muxData && isset($muxData->id) && (!isset($muxData->status) || $muxData->status !== 'ready') && !KirbyMux\Methods::syncedByWebhook($muxData)) {
                 $assetsApi = KirbyMux\Auth::assetsApi();
                 if ($assetsApi) {
                     try {
@@ -97,129 +137,10 @@ Kirby::plugin('robinscholz/kirby-mux', [
             return $muxData->playback_ids[0]->id;
         },
         'muxUrlLow' => function () {
-            if (!$this->mux()) {
-                return null;
-            }
-
-            $muxData = json_decode($this->mux());
-            if (!$muxData ||
-                !isset($muxData->id) ||
-                !isset($muxData->playback_ids) ||
-                !is_array($muxData->playback_ids) ||
-                !isset($muxData->playback_ids[0]) ||
-                !isset($muxData->playback_ids[0]->id)) {
-                return null;
-            }
-
-            $assetId = $muxData->id;
-            $playbackId = $muxData->playback_ids[0]->id;
-            $preparingRenditions = (isset($muxData->status) && $muxData->status === 'preparing') ||
-                                   (isset($muxData->static_renditions) && isset($muxData->static_renditions->status) && $muxData->static_renditions->status !== 'ready');
-
-            if ($preparingRenditions) {
-                // Authenticate
-                $assetsApi = KirbyMux\Auth::assetsApi();
-                if (!$assetsApi) {
-                    return null;
-                }
-
-                try {
-                    $maxAttempts = 60; // Maximum 60 seconds wait time
-                    $attempts = 0;
-                    while ($attempts < $maxAttempts) {
-                        $waitingAsset = $assetsApi->getAsset($assetId);
-                        if (!$waitingAsset || !$waitingAsset->getData()) {
-                            break;
-                        }
-
-                        $assetData = $waitingAsset->getData();
-                        if (!isset($assetData['static_renditions']) || $assetData['static_renditions']['status'] !== 'ready') {
-                            sleep(1);
-                            $attempts++;
-                        } else {
-                            $file = $this;
-                            // Frontend renders have no authenticated user; impersonate
-                            // so the file update is permitted outside the Panel.
-                            kirby()->impersonate('kirby', function () use ($file, $assetData) {
-                                $file->update(['mux' => $assetData]);
-                            });
-                            break;
-                        }
-                    }
-                } catch (Exception $e) {
-                    // Handle error gracefully
-                    return null;
-                }
-            }
-
-            $renditionName = KirbyMux\Methods::resolveStaticRenditionName($muxData);
-            if ($renditionName) {
-                return "https://stream.mux.com/" . $playbackId . "/" . $renditionName;
-            }
-
-            return "https://stream.mux.com/" . $playbackId . "/capped-1080p.mp4";
+            return KirbyMux\Methods::renditionUrl($this);
         },
         'muxUrlHigh' => function () {
-            if (!$this->mux()) {
-                return null;
-            }
-
-            $muxData = json_decode($this->mux());
-            if (!$muxData ||
-                !isset($muxData->id) ||
-                !isset($muxData->playback_ids) ||
-                !is_array($muxData->playback_ids) ||
-                !isset($muxData->playback_ids[0]) ||
-                !isset($muxData->playback_ids[0]->id)) {
-                return null;
-            }
-
-            $assetId = $muxData->id;
-            $playbackId = $muxData->playback_ids[0]->id;
-            $preparingRenditions = (isset($muxData->status) && $muxData->status === 'preparing') ||
-                                   (isset($muxData->static_renditions) && isset($muxData->static_renditions->status) && $muxData->static_renditions->status !== 'ready');
-
-            if ($preparingRenditions) {
-                // Authenticate
-                $assetsApi = KirbyMux\Auth::assetsApi();
-                if (!$assetsApi) {
-                    return null;
-                }
-
-                try {
-                    $maxAttempts = 60; // Maximum 60 seconds wait time
-                    $attempts = 0;
-                    while ($attempts < $maxAttempts) {
-                        $waitingAsset = $assetsApi->getAsset($assetId);
-                        if (!$waitingAsset || !$waitingAsset->getData()) {
-                            break;
-                        }
-
-                        $assetData = $waitingAsset->getData();
-                        if (!isset($assetData['static_renditions']) || $assetData['static_renditions']['status'] !== 'ready') {
-                            sleep(1);
-                            $attempts++;
-                        } else {
-                            $file = $this;
-                            // Frontend renders have no authenticated user; impersonate
-                            // so the file update is permitted outside the Panel.
-                            kirby()->impersonate('kirby', function () use ($file, $assetData) {
-                                $file->update(['mux' => $assetData]);
-                            });
-                            break;
-                        }
-                    }
-                } catch (Exception $e) {
-                    return null;
-                }
-            }
-
-            $renditionName = KirbyMux\Methods::resolveStaticRenditionName($muxData);
-            if ($renditionName) {
-                return "https://stream.mux.com/" . $playbackId . "/" . $renditionName;
-            }
-
-            return "https://stream.mux.com/" . $playbackId . "/capped-1080p.mp4";
+            return KirbyMux\Methods::renditionUrl($this);
         },
         'muxUrlStream' => function () {
             $playbackId = $this->muxPlaybackId();
@@ -340,13 +261,8 @@ Kirby::plugin('robinscholz/kirby-mux', [
 
             $maxResolutionTier = option('robinscholz.kirby-mux.maxResolutionTier', '1080p');
 
-            // Upload the file to mux (returns synchronously with playback_id, even while processing)
-            $result = KirbyMux\Methods::upload($assetsApi, $file->url(), $file->type(), $quality, $maxResolutionTier);
-            if (!$result || !$result->getData()) {
-                return;
-            }
-
-            // Save mux data
+            // Analyze locally before uploading, so the asset is persisted right after
+            // createAsset and an early webhook cannot be overwritten by this hook
             $getID3 = new getID3;
             // Analyze file and store returned data in $ThisFileInfo
             $ThisFileInfo = $getID3->analyze($file->root());
@@ -357,12 +273,20 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 $resolutionY = isset($ThisFileInfo['video']['resolution_y']) ? $ThisFileInfo['video']['resolution_y'] : '';
             }
 
-            // Wait for Mux to finish analyzing so the persisted JSON is complete
-            // (contains aspect_ratio, duration, tracks). Falls back to the initial
-            // response only if Mux never reports ready within the window — in which
-            // case the self-heal in muxPlaybackId() finishes the job.
-            $assetData = KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId())
-                ?? $result->getData();
+            // Upload the file to mux (returns synchronously with playback_id, even while processing)
+            $result = KirbyMux\Methods::upload($assetsApi, $file->url(), $file->type(), $quality, $maxResolutionTier, KirbyMux\Methods::fileReference($file));
+            if (!$result || !$result->getData()) {
+                return;
+            }
+
+            // With webhooks, store the initial response and let the webhook fill in
+            // aspect_ratio, duration, tracks and renditions — no blocking request.
+            // Without, wait for Mux to finish analyzing so the persisted JSON is
+            // complete; if it never reports ready, the self-heal in muxPlaybackId()
+            // finishes the job.
+            $assetData = KirbyMux\Methods::webhooksEnabled()
+                ? $result->getData()
+                : (KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId()) ?? $result->getData());
 
             try {
                 $file->update([
@@ -467,13 +391,8 @@ Kirby::plugin('robinscholz/kirby-mux', [
 
             $maxResolutionTier = option('robinscholz.kirby-mux.maxResolutionTier', '1080p');
 
-            // Upload new file to mux (returns synchronously with playback_id, even while processing)
-            $result = KirbyMux\Methods::upload($assetsApi, $newFile->url(), $newFile->type(), $quality, $maxResolutionTier);
-            if (!$result || !$result->getData()) {
-                return;
-            }
-
-            // Save mux data
+            // Analyze locally before uploading, so the asset is persisted right after
+            // createAsset and an early webhook cannot be overwritten by this hook
             $getID3 = new getID3;
             // Analyze file and store returned data in $ThisFileInfo
             $ThisFileInfo = $getID3->analyze($newFile->root());
@@ -488,12 +407,20 @@ Kirby::plugin('robinscholz/kirby-mux', [
                 $resolutionY = isset($ThisFileInfo['video']['resolution_y']) ? $ThisFileInfo['video']['resolution_y'] : '';
             }
 
-            // Wait for Mux to finish analyzing so the persisted JSON is complete
-            // (contains aspect_ratio, duration, tracks). Falls back to the initial
-            // response only if Mux never reports ready within the window — in which
-            // case the self-heal in muxPlaybackId() finishes the job.
-            $assetData = KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId())
-                ?? $result->getData();
+            // Upload new file to mux (returns synchronously with playback_id, even while processing)
+            $result = KirbyMux\Methods::upload($assetsApi, $newFile->url(), $newFile->type(), $quality, $maxResolutionTier, KirbyMux\Methods::fileReference($newFile));
+            if (!$result || !$result->getData()) {
+                return;
+            }
+
+            // With webhooks, store the initial response and let the webhook fill in
+            // aspect_ratio, duration, tracks and renditions — no blocking request.
+            // Without, wait for Mux to finish analyzing so the persisted JSON is
+            // complete; if it never reports ready, the self-heal in muxPlaybackId()
+            // finishes the job.
+            $assetData = KirbyMux\Methods::webhooksEnabled()
+                ? $result->getData()
+                : (KirbyMux\Methods::waitUntilReady($assetsApi, $result->getData()->getId()) ?? $result->getData());
 
             try {
                 $newFile->update([
